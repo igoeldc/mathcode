@@ -1,0 +1,40 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# C extensions
+*.so
+
+# Distribution / packaging
+*.egg-info/
+*.egg
+*.eggs/
+build/
+dist/
+pip-wheel-metadata/
+
+# Editable installs
+*.egg-link
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# VS Code settings
+.vscode/
+
+# Logs
+*.log
+
+# macOS system files
+.DS_Store

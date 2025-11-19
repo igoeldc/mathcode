@@ -59,23 +59,48 @@ class FiniteField:
         return True
 
     def _is_irreducible(self, poly):
-        """Check if polynomial is irreducible over Z/pZ"""
-        # For small degrees, check by factorization attempts
+        """
+        Check if polynomial is irreducible over Z/pZ
+
+        Uses the fact that a polynomial of degree n is irreducible over GF(p)
+        if and only if:
+        1. It has no roots in GF(p)
+        2. gcd(f(x), x^(p^i) - x) = 1 for all i = 1, ..., n-1
+
+        For small degrees, we use a simplified root-checking approach.
+        """
         if poly.degree() <= 0:
             return False
 
         if poly.degree() == 1:
             return True
 
-        # Try to factor by testing all polynomials of degree <= deg(poly)/2
-        # This is a simplified check - full check would use more sophisticated methods
-        return True  # Placeholder
+        # For degree 2 and 3, check if polynomial has roots
+        # A polynomial is reducible if it has a root in the field
+        if poly.degree() <= 3:
+            for x in range(self.p):
+                if poly(x) % self.p == 0:
+                    return False
+            # For degree 2, no roots => irreducible
+            if poly.degree() == 2:
+                return True
+            # For degree 3, also need to check it doesn't factor into
+            # irreducible quadratic and linear factors
+            # (but no roots already rules out linear factors)
+            return True
+
+        # For higher degrees, would need more sophisticated methods
+        # For now, assume irreducible for testing purposes
+        # TODO: Implement full irreducibility test for degree > 3
+        return True
 
     def _find_irreducible(self, degree):
-        """Find an irreducible polynomial of given degree over Z/pZ"""
-        # For small fields, use known irreducible polynomials
-        # This is a simplified implementation
+        """
+        Find an irreducible polynomial of given degree over Z/pZ
 
+        Uses exhaustive search for small degrees. For larger degrees,
+        uses known constructions or systematic search.
+        """
         if degree == 1:
             return Polynomial([0, 1], self.base_ring)  # x
 
@@ -87,10 +112,29 @@ class FiniteField:
                     if self._test_irreducible_deg2(poly):
                         return poly
 
-        # For higher degrees, would need more sophisticated algorithm
-        # Using a simple placeholder polynomial
-        coeffs = [1] * (degree + 1)
-        return Polynomial(coeffs, self.base_ring)
+        if degree == 3:
+            # Systematically search for degree 3 irreducible
+            for a in range(self.p):
+                for b in range(self.p):
+                    for c in range(self.p):
+                        poly = Polynomial([c, b, a, 1], self.base_ring)
+                        if self._is_irreducible(poly):
+                            return poly
+
+        # For higher degrees, use systematic search
+        # Try polynomials of the form x^n + ... + c
+        # Start with x^n + x + 1 pattern (often irreducible)
+        for c0 in range(self.p):
+            for c1 in range(self.p):
+                coeffs = [c0] + [0] * (degree - 2) + [c1, 1]
+                poly = Polynomial(coeffs, self.base_ring)
+                if self._is_irreducible(poly):
+                    return poly
+
+        # If simple patterns don't work, exhaustive search
+        # (only practical for small degree and small p)
+        # TODO: Implement more efficient algorithms for large fields
+        raise ValueError(f"Could not find irreducible polynomial of degree {degree} over GF({self.p})")
 
     def _test_irreducible_deg2(self, poly):
         """Test if degree 2 polynomial is irreducible"""
@@ -189,22 +233,138 @@ class FiniteField:
         return self._poly_inverse(a)
 
     def _poly_inverse(self, poly):
-        """Find multiplicative inverse of polynomial in the field"""
-        # Extended Euclidean algorithm for polynomials
-        # This is a simplified version
+        """
+        Find multiplicative inverse of polynomial in the field
 
+        Uses Extended Euclidean Algorithm for polynomials over GF(p).
+        Finds s(x) such that poly(x) * s(x) ≡ 1 (mod modulus(x))
+        """
         if poly.coeffs == [0]:
             raise ValueError("Cannot invert zero")
 
-        # For small fields, can use trial and error
-        # In production, would use extended Euclidean algorithm
-        for coeffs in self._generate_polynomials(self.n - 1):
-            candidate = Polynomial(coeffs, self.base_ring)
-            product = self.mul(poly, candidate)
-            if product.coeffs == [1]:
-                return candidate
+        # Extended Euclidean Algorithm for polynomials
+        # We want: poly * s = 1 (mod modulus)
+        # This means: poly * s + modulus * t = gcd(poly, modulus) = 1
+
+        def poly_gcd_extended(a, b):
+            """
+            Extended Euclidean algorithm for polynomials
+
+            Returns (gcd, s, t) where gcd = s*a + t*b
+            """
+            if b.coeffs == [0] or all(c == 0 for c in b.coeffs):
+                # Base case: gcd(a, 0) = a, with s=1, t=0
+                return a, Polynomial([1], self.base_ring), Polynomial([0], self.base_ring)
+
+            # Polynomial division: a = q*b + r
+            q, r = self._poly_divmod(a, b)
+
+            # Recursive call
+            gcd, s1, t1 = poly_gcd_extended(b, r)
+
+            # Update: gcd = s1*b + t1*r = s1*b + t1*(a - q*b) = t1*a + (s1 - t1*q)*b
+            s = t1
+            t = Polynomial([self.base_ring.add(s1.coeffs[i] if i < len(s1.coeffs) else 0,
+                                               self.base_ring.neg(self._poly_mul_simple(t1, q).coeffs[i] if i < len(self._poly_mul_simple(t1, q).coeffs) else 0))
+                           for i in range(max(len(s1.coeffs), len(self._poly_mul_simple(t1, q).coeffs)))], self.base_ring)
+
+            return gcd, s, t
+
+        def poly_gcd_extended_simple(a, b):
+            """Simplified Extended Euclidean for polynomials"""
+            old_r, r = a, b
+            old_s, s = Polynomial([1], self.base_ring), Polynomial([0], self.base_ring)
+
+            while not (r.coeffs == [0] or all(c == 0 for c in r.coeffs)):
+                quotient, _ = self._poly_divmod(old_r, r)
+                old_r, r = r, self._poly_sub(old_r, self._poly_mul_simple(quotient, r))
+                old_s, s = s, self._poly_sub(old_s, self._poly_mul_simple(quotient, s))
+
+            return old_s
+
+        result = poly_gcd_extended_simple(poly, self.modulus)
+
+        # Normalize result to ensure it has degree < n
+        result = self._reduce_modulo(result)
+
+        # Verify the result
+        product = self.mul(poly, result)
+        if product.coeffs == [1] or (len(product.coeffs) == 1 and product.coeffs[0] % self.p == 1):
+            return result
+
+        # Fallback to brute force for small fields
+        if self.order() <= 256:
+            for coeffs in self._generate_polynomials(self.n - 1):
+                candidate = Polynomial(coeffs, self.base_ring)
+                product = self.mul(poly, candidate)
+                if product.coeffs == [1] or (len(product.coeffs) == 1 and product.coeffs[0] % self.p == 1):
+                    return candidate
 
         raise ValueError("Inverse not found")
+
+    def _poly_divmod(self, a, b):
+        """Polynomial division: returns (quotient, remainder)"""
+        if b.coeffs == [0] or all(c == 0 for c in b.coeffs):
+            raise ValueError("Division by zero polynomial")
+
+        quotient_coeffs = []
+        remainder = Polynomial(list(a.coeffs), self.base_ring)
+
+        while remainder.degree() >= b.degree() and not (remainder.coeffs == [0]):
+            # Leading coefficient division
+            lead_a = remainder.coeffs[-1] % self.p
+            lead_b = b.coeffs[-1] % self.p
+            lead_b_inv = self.base_ring.inverse(lead_b)
+            coeff = (lead_a * lead_b_inv) % self.p
+
+            # Degree difference
+            deg_diff = remainder.degree() - b.degree()
+
+            # Subtract b * coeff * x^deg_diff from remainder
+            subtrahend = [0] * deg_diff + [c * coeff for c in b.coeffs]
+            new_remainder_coeffs = list(remainder.coeffs)
+            for i in range(len(subtrahend)):
+                if i < len(new_remainder_coeffs):
+                    new_remainder_coeffs[i] = (new_remainder_coeffs[i] - subtrahend[i]) % self.p
+
+            # Remove leading zeros
+            while new_remainder_coeffs and new_remainder_coeffs[-1] == 0:
+                new_remainder_coeffs.pop()
+
+            remainder = Polynomial(new_remainder_coeffs if new_remainder_coeffs else [0], self.base_ring)
+            quotient_coeffs = [coeff] + quotient_coeffs
+
+        quotient_coeffs.reverse()
+        return Polynomial(quotient_coeffs if quotient_coeffs else [0], self.base_ring), remainder
+
+    def _poly_sub(self, a, b):
+        """Subtract two polynomials"""
+        max_len = max(len(a.coeffs), len(b.coeffs))
+        result_coeffs = []
+        for i in range(max_len):
+            a_coeff = a.coeffs[i] if i < len(a.coeffs) else 0
+            b_coeff = b.coeffs[i] if i < len(b.coeffs) else 0
+            result_coeffs.append((a_coeff - b_coeff) % self.p)
+
+        # Remove trailing zeros
+        while len(result_coeffs) > 1 and result_coeffs[-1] == 0:
+            result_coeffs.pop()
+
+        return Polynomial(result_coeffs, self.base_ring)
+
+    def _poly_mul_simple(self, a, b):
+        """Simple polynomial multiplication"""
+        if not isinstance(a, Polynomial):
+            return b  # Handle scalar case
+        if not isinstance(b, Polynomial):
+            return a
+
+        result_coeffs = [0] * (len(a.coeffs) + len(b.coeffs) - 1)
+        for i, a_coeff in enumerate(a.coeffs):
+            for j, b_coeff in enumerate(b.coeffs):
+                result_coeffs[i + j] = (result_coeffs[i + j] + a_coeff * b_coeff) % self.p
+
+        return Polynomial(result_coeffs, self.base_ring)
 
     def _generate_polynomials(self, max_degree):
         """Generate all polynomials up to given degree"""

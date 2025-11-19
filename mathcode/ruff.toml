@@ -1,13 +1,11 @@
 # ruff.toml
-line-length = 88
 target-version = "py38"
 
 [lint]
 select = ["E", "F", "B", "I"]
+ignore = ["E501"]
 
 [format]
 line-ending = "lf"
 quote-style = "single"
 skip-magic-trailing-comma = true
-line-ending-newline = false
-normalize-string-quotes = false

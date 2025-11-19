@@ -1,1 +1,3 @@
--e git+https://github.com/igoeldc/mathcode.git@1d8279ca63f8294009b0da60ce62242433325ba6#egg=mathcode
+numpy
+matplotlib
+networkx

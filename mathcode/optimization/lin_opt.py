@@ -707,7 +707,7 @@ class BendersDecomposition:
         return x, y, value
 
 
-## Example Usage
+## Example Code
 
 # Minimize 3x1 + 2x2
 # subject to x1 + x2 <= 4

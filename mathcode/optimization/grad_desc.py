@@ -415,7 +415,7 @@ class ConjugateGradient:
         return self.history
 
 
-## Example Usage
+## Example Code
 
 # Minimize Rosenbrock function: f(x,y) = (1-x)^2 + 100(y-x^2)^2
 # def rosenbrock(x):

@@ -39,7 +39,7 @@ A Python library containing reusable mathematical models and methods from course
 ## Installation
 
 ```bash
-pip install -e .
+pip install mathcode
 ```
 
 ## Requirements

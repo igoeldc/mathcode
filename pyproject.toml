@@ -1,6 +1,6 @@
 [project]
 name = "mathcode"
-version = "0.1.1"
+version = "0.1.2"
 description = "A Python library containing reusable models and methods from coursework, including modules on stochastic processes, optimization, graph theory, and more to come."
 authors = [{ name = "Ishaan Goel" }]
 license = {text = "MIT"}
